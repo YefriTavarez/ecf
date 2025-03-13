@@ -18,6 +18,7 @@
    "options": "TesteCF\nCerteCF\neCF"
   },
   {
+   "default": "https://ecf.dgii.gov.do/testecf/autenticacion",
    "fieldname": "service_url",
    "fieldtype": "Data",
    "label": "Service URL",
