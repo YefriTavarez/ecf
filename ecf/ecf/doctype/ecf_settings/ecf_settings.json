@@ -5,18 +5,29 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_kakz"
+  "environment",
+  "service_url"
  ],
  "fields": [
   {
-   "fieldname": "section_break_kakz",
-   "fieldtype": "Section Break"
+   "default": "TesteCF",
+   "description": "<ul>\n    <li>\n        <strong>TesteCF</strong>: Ambiente de pre-certificaci\u00f3n<br>\n        <a href=\"#\">https://ecf.dgii.gov.do/testecf/autenticacion</a>\n    </li>\n    <li>\n        <strong>CerteCF</strong>: Ambiente de certificaci\u00f3n<br>\n        <a href=\"#\">https://ecf.dgii.gov.do/certecf/autenticacion</a>\n    </li>\n    <li>\n        <strong>eCF</strong>: Ambiente de producci\u00f3n<br>\n        <a href=\"#\">https://ecf.dgii.gov.do/ecf/autenticacion</a>\n    </li>\n</ul>",
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "TesteCF\nCerteCF\neCF"
+  },
+  {
+   "fieldname": "service_url",
+   "fieldtype": "Data",
+   "label": "Service URL",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-03-12 22:22:01.896269",
+ "modified": "2025-03-12 22:51:36.061448",
  "modified_by": "Administrator",
  "module": "ECF",
  "name": "ECF Settings",
