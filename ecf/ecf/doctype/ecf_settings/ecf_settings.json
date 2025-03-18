@@ -5,8 +5,13 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "ecf_dgii_section",
   "environment",
-  "service_url"
+  "service_url",
+  "tz_signer_tab",
+  "signer_service_url",
+  "signer_user",
+  "signer_password"
  ],
  "fields": [
   {
@@ -23,12 +28,38 @@
    "fieldtype": "Data",
    "label": "Service URL",
    "read_only": 1
+  },
+  {
+   "fieldname": "ecf_dgii_section",
+   "fieldtype": "Section Break",
+   "label": "eCF DGII"
+  },
+  {
+   "fieldname": "tz_signer_tab",
+   "fieldtype": "Tab Break",
+   "label": "Tz Signer"
+  },
+  {
+   "fieldname": "signer_service_url",
+   "fieldtype": "Data",
+   "label": "Signer Service URL",
+   "options": "URL"
+  },
+  {
+   "fieldname": "signer_user",
+   "fieldtype": "Data",
+   "label": "Signer User"
+  },
+  {
+   "fieldname": "signer_password",
+   "fieldtype": "Password",
+   "label": "Signer Password"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-03-12 22:51:36.061448",
+ "modified": "2025-03-12 23:09:47.538951",
  "modified_by": "Administrator",
  "module": "ECF",
  "name": "ECF Settings",
