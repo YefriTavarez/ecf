@@ -3,75 +3,114 @@
 
 import requests
 
-settings = {
-	"service_url": "https://signer.example.com",
-
-}
-
-# elements I need to sign
-# username: str - User known by the signer service
-# password: str - Password for the user
-# client: str - Client ID to be used group the other elements (like a tag)
-# p12: File - File containing the certificate to be used for signing
-# p12_secret: str - Password for the p12 file
-# p12_filepath: str - Path to the p12 file
-# jwt_token: str - Token to be used after the login (upload the certificate, get a signed seed and sign the seed)
-# bearer_token: str - Token to be used to authenticate the user for further requests
-# service_url: str - URL for the signer
-# xml_document: File - XML document to
-# xml_docpath: str - Path to the XML document
-# token_expiry: int - Time in seconds for the token to expire
-# token_expires: datetime - Time when the token expires
-
-
-# Worflow:
-# 1. Authenticate the User (username, password and client)
-# 2. Upload the certificate (p12, p12_secret and jwt_token)
-# 3. Get a seed to sign (jwt_token)
-# 4. Sign the seed (jwt_token and seed)
-# 5. Get the signed document (jwt_token)
-#
-
+from frappe import (
+	enqueue as enqueue_job,
+)
 
 
 class eCFSignerClient:
 	def __init__(self, settings):
 		self.settings = settings
+		self.jwt_token = None
+		self.authenticate_user()
 
-	def sign(self, xml_document: str):
+	def authenticate_user(self):
+		conf = self.settings
+
+		url = f"{conf.scheme}://{conf.service_url}:{conf.port}/auth/login"
+
+		payload = {
+			"username": conf.username,
+			"password": conf.password,
+			"client": conf.client
+		}
+		response = requests.post(url, json=payload)
+		response.raise_for_status()
+		self.jwt_token = response.json().get("token")
+
+	def upload_certificate(self, p12_filepath: str, p12_secret: str):
+		conf = self.settings
+		url = f"{conf.scheme}://{conf.service_url}:{conf.port}/upload-p12"
+		headers = {
+			"Authorization": f"Bearer {self.jwt_token}"
+		}
+
+		files = {
+			"p12File": open(p12_filepath, "rb"),
+		}
+
+		data = {
+			"secret": p12_secret,
+		}
+
+		response = requests.post(url, headers=headers, files=files, data=data)
+		response.raise_for_status()
+
+	def _get_seed(self):
+		conf = self.settings
+
+		url = f"{conf.scheme}://{conf.service_url}:{conf.port}/get-seed"
+		headers = {
+			"Authorization": f"Bearer {self.jwt_token}"
+		}
+		response = requests.get(url, headers=headers)
+		response.raise_for_status()
+		return response.text
+	
+	def get_seed(self):
+		url = "https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/Semilla"
+		headers = {
+			"Accept": "text/xml",
+			"Content-Type": "text/xml"
+		}
+
+		response = requests.get(url, headers=headers)
+		response.raise_for_status()
+		return response.text
+
+		
+	def get_signed_seed(self, path=None):
+		seed = self.get_seed()
+		signed_seed = self.sign_seed(seed)
+
+		if path:
+			with open(path, "w") as f:
+				f.write(signed_seed)
+
+			return path
+ 
+		return signed_seed
+
+	def sign_seed(self, seed: str):
+		conf = self.settings
+
+		url = f"{conf.scheme}://{conf.service_url}:{conf.port}/sign-xml"
+		headers = {
+			"Authorization": f"Bearer {self.jwt_token}"
+		}
+
+		seedpath = f"/tmp/{self.jwt_token}.xml"
+		with open(seedpath, "w") as f:
+			f.write(seed)
+
+		files = {
+			"xmlFile": open(seedpath, "rb"),
+		}
+		response = requests.post(url, headers=headers, files=files)
+		response.raise_for_status()
+		
+		enqueue_job(
+			method=remove_seed,
+			queue="default",
+			timeout=300,
+			job_name=f"Remove Seed {seedpath}",
+			seedpath=seedpath,
+		)
+
+		return response.text
 
 
-"""
-// Workflow
-Get a token
-
-curl -X POST http://ecf.tzcode.tech:3760/auth/login \
--H "Content-Type: application/json" \
--d '{"username": "usr_ciOiJIUzI", "password": "passwd_nR5cCI6IkpXVC", "client": "TzCode, S. R. L."}'
-// Upload the certficate file
-
-curl -X POST http://ecf.tzcode.tech:3760/upload-p12 \
--H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRJZCI6IlR6Q29kZSwgUy4gUi4gTC4iLCJpYXQiOjE3NDEyNDE4OTYsImV4cCI6MTc0MTI4NTA5Nn0.bJ0ttDEdbaTQ0sXoORNf7twjL6jOTGYeUH56ByDR07A" \
--F "p12File=@/Users/freebird/Downloads/Firma Digital.p12" \
--F "secret=M@sterpass17.."
-
-
-
-// Get a seed
-curl -X 'GET' \
-  'https://ecf.dgii.gov.do/CerteCF/Autenticacion/api/Autenticacion/Semilla' \
-  -H 'Accept: text/xml' \
-  -H 'Content-Type: text/xml'
-
-
-// Sign the xml
-
-curl -X POST http://ecf.tzcode.tech:3760/sign-xml \
--H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRJZCI6IlR6Q29kZSwgUy4gUi4gTC4iLCJpYXQiOjE3NDEyNDE4OTYsImV4cCI6MTc0MTI4NTA5Nn0.bJ0ttDEdbaTQ0sXoORNf7twjL6jOTGYeUH56ByDR07A" \
--F "xmlFile=@/Users/freebird/Downloads/seed.xml"
-
-// Renew the token
-curl -X POST http://ecf.tzcode.tech:3760/auth/refresh \
--H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGllbnRJZCI6IlR6Q29kZSwgUy4gUi4gTC4iLCJpYXQiOjE3NDEyNDE4OTYsImV4cCI6MTc0MTI4NTA5Nn0.bJ0ttDEdbaTQ0sXoORNf7twjL6jOTGYeUH56ByDR07A"
-
-"""
+def remove_seed(seedpath):
+	import os
+	os.remove(seedpath)
+	return seedpath
