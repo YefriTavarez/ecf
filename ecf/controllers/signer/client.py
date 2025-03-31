@@ -4,9 +4,19 @@
 import requests
 
 from frappe import (
+	# _dict as dictify,
 	enqueue as enqueue_job,
 )
 
+
+# sample_settings = dictify({
+# 	"service_url": "ecf.example.com",
+# 	"scheme": ["http" | "https"],
+# 	"port": 6767,
+# 	"username": "username",
+# 	"password": "password",
+# 	"client": "ABC, S. R. L.",
+# })
 
 class eCFSignerClient:
 	def __init__(self, settings):
