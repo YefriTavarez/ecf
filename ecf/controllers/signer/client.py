@@ -1,11 +1,13 @@
 # Copyright (c) 2025, Yefri Tavarez and Contributors
 # For license information, please see license.txt
 
+import io
 import requests
+import frappe
 
 from frappe import (
-    # _dict as dictify,
-    enqueue as enqueue_job,
+    _dict as dictify,
+    # enqueue as enqueue_job,
 )
 
 
@@ -17,6 +19,22 @@ from frappe import (
 # 	"password": "password",
 # 	"client": "ABC, S. R. L.",
 # })
+
+
+def get_settings():
+    """
+    Obtiene la configuración de la aplicación ECF desde el sistema.
+    """
+    settings = frappe.get_single("ECF Settings")
+
+    return dictify({
+        "service_url": settings.signer_url,
+        "scheme": settings.scheme,
+        "port": settings.port,
+        "username": settings.signer_user,
+        "password": settings.get_password("signer_password"),
+        "client": settings.company
+    })
 
 class eCFSignerClient:
     def __init__(self, settings):
@@ -91,7 +109,7 @@ class eCFSignerClient:
  
         return signed_seed
 
-    def sign_seed(self, seed: str):
+    def sign_xml(self, seed: str, tag_name: str=None):
         conf = self.settings
 
         url = f"{conf.scheme}://{conf.service_url}:{conf.port}/sign-xml"
@@ -99,23 +117,36 @@ class eCFSignerClient:
             "Authorization": f"Bearer {self.jwt_token}"
         }
 
-        seedpath = f"/tmp/{self.jwt_token}.xml"
-        with open(seedpath, "w") as f:
-            f.write(seed)
+        # seedpath = f"/tmp/{self.jwt_token}.xml"
+        # with open(seedpath, "w") as f:
+            # f.write(seed)
+
+        file_bytes = io.BytesIO(seed.encode('utf-8'))
+        file_bytes.name = '{self.jwt_token}.xml'  # Set the filename for the BytesIO object
 
         files = {
-            "xmlFile": open(seedpath, "rb"),
+            # "xmlFile": open(seedpath, "rb"),
+            "xmlFile": (file_bytes.name, file_bytes, 'application/xml'),
         }
-        response = requests.post(url, headers=headers, files=files)
+
+        if tag_name:
+            data = {
+                "tagName": tag_name,
+            }
+        else:
+            data = {}
+        response = requests.post(url, headers=headers, files=files, data=data)
         response.raise_for_status()
+        # files["xmlFile"].close()
         
-        enqueue_job(
-            method=remove_seed,
-            queue="default",
-            timeout=300,
-            job_name=f"Remove Seed {seedpath}",
-            seedpath=seedpath,
-        )
+        # Enqueue a job to remove the seed file after signing
+        # enqueue_job(
+        #     method=remove_seed,
+        #     queue="default",
+        #     timeout=300,
+        #     job_name=f"Remove Seed {seedpath}",
+        #     seedpath=seedpath,
+        # )
 
         return response.text
 
@@ -141,6 +172,37 @@ class eCFSignerClient:
         response = requests.post(url, headers=headers, json=json_data)
         response.raise_for_status()
         return response.text
+
+    def send_signed_invoice(self, signed_xml_filepath: str, invoice_type: str = None):
+        """
+        Envía el archivo XML firmado al endpoint /send-invoice del servidor.
+
+        Args:
+            signed_xml_filepath (str): La ruta al archivo XML que ya ha sido firmado.
+            invoice_type (str, optional): El tipo de factura (ej: 'FC_MENOR_250K'). Defaults to None.
+        """
+        conf = self.settings
+        url = f"{conf.scheme}://{conf.service_url}:{conf.port}/send-invoice"
+        headers = {
+            "Authorization": f"Bearer {self.jwt_token}"
+        }
+        files = {
+            "signedXmlFile": open(signed_xml_filepath, "rb"),
+        }
+        data = {}
+        if invoice_type:
+            data["invoiceType"] = invoice_type
+
+        try:
+            response = requests.post(url, headers=headers, files=files, data=data)
+            response.raise_for_status()
+            return response.json()  # O response.text si el servidor responde con texto
+        except requests.exceptions.RequestException as e:
+            print(f"Error al enviar la factura: {e}")
+            if response is not None:
+                print(f"Respuesta del servidor: {response.status_code} - {response.text}")
+            return None
+
 
 
 def remove_seed(seedpath):

@@ -10,8 +10,12 @@
   "service_url",
   "tz_signer_tab",
   "signer_service_url",
+  "signer_url",
+  "scheme",
+  "port",
   "signer_user",
-  "signer_password"
+  "signer_password",
+  "company"
  ],
  "fields": [
   {
@@ -54,12 +58,33 @@
    "fieldname": "signer_password",
    "fieldtype": "Password",
    "label": "Signer Password"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "scheme",
+   "fieldtype": "Data",
+   "label": "scheme"
+  },
+  {
+   "fieldname": "port",
+   "fieldtype": "Data",
+   "label": "port"
+  },
+  {
+   "fieldname": "signer_url",
+   "fieldtype": "Data",
+   "label": "Signer URL"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-03-12 23:09:47.538951",
+ "modified": "2025-04-01 16:20:42.371054",
  "modified_by": "Administrator",
  "module": "ECF",
  "name": "ECF Settings",
